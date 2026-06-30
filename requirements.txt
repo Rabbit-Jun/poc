@@ -1,0 +1,4 @@
+torch==2.12.1
+torchvision==0.27.1
+transformers==5.12.1
+Pillow==12.2.0
