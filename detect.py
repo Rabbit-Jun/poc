@@ -42,8 +42,20 @@ results = processor.post_process_object_detection(
     target_sizes=target_sizes,
 )[0]
 
+import torchvision
 
-for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
+keep = torchvision.ops.batched_nms(
+    results["boxes"],
+    results["scores"],
+    results["labels"],
+    iou_threshold=0.5
+)
+
+boxes = results["boxes"][keep]
+scores = results["scores"][keep]
+labels = results["labels"][keep]
+
+for score, label, box in zip(scores, labels, boxes):
     name = model.config.id2label[label.item()]
     print(f"{name:30s} 확신도 {score.item():.2f} box {[round(x,1) for x in box.tolist()]}")
 
@@ -52,11 +64,10 @@ from PIL import ImageDraw
 draw_img = image.convert("RGB").copy()
 draw = ImageDraw.Draw(draw_img)
 
-for score,label,box in zip(results["scores"], results["labels"], results["boxes"]):
+for score,label,box in zip(scores, labels, boxes):
     x1,y1,x2,y2 = box.tolist()
     draw.rectangle([x1,y1,x2,y2], outline='red', width=3)
     name = model.config.id2label[label.item()]
-    print(f"label.item: {label.item()}")
     draw.text((x1,y1 -10), f"{name} {score.item():.2f}", fill= "red")
 
 draw_img.save("detect_boxes.png")
