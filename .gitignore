@@ -1,0 +1,15 @@
+.venv/
+venv/
+input/*
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Model weights / data
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
