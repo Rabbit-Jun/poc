@@ -1,3 +1,20 @@
+# ============================================================
+# 설치 안내
+# ------------------------------------------------------------
+# Mac / CPU 환경:
+#   pip install -r requirements.txt
+#
+# 엔비디아 GPU 서버(CUDA) 환경:
+#   torch / torchvision은 서버의 CUDA 버전에 맞는 빌드를 따로 설치해야 합니다.
+#   그냥 pip install 하면 GPU를 못 잡을 수 있어요(torch.cuda.is_available() == False).
+#   PyTorch 공식 안내: https://pytorch.org/get-started/locally/
+#
+#   예) CUDA 12.4:
+#     pip install torch==2.12.1 torchvision==0.27.1 --index-url https://download.pytorch.org/whl/cu124
+#   그 다음 나머지 패키지:
+#     pip install -r requirements.txt
+# ============================================================
+
 torch==2.12.1
 torchvision==0.27.1
 transformers==5.12.1
