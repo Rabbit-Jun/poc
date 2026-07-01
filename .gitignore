@@ -1,7 +1,7 @@
 .venv/
 venv/
 input/*
-
+output/*
 # Python
 __pycache__/
 *.py[cod]

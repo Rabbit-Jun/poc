@@ -2,16 +2,8 @@ import torch
 from PIL import Image,ImageDraw
 from transformers import AutoImageProcessor, AutoModelForObjectDetection
 import torchvision
+from device_check import get_device
 
-def get_device():
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.backends.mps.is_available():
-        device = "mps"
-    else:
-        device = "cpu"
-
-    return device
 
 device = get_device()
 model_name ="valentinafevu/yolos-fashionpedia"
@@ -66,3 +58,4 @@ if __name__ == "__main__":
                 print(f"{model.config.id2label[label.item()]:30s} {score.item():.2f}  {[round(x,1) for x in box.tolist()]}")
 
     draw_boxes(image, boxes, scores, labels).save("detected_image.png")
+    
