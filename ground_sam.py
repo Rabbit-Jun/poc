@@ -32,5 +32,5 @@ if __name__ == '__main__':
         rgba = image.convert("RGBA")
         rgba.putalpha(mask_img)
         name = labels[i].replace(" ", "_")
-        rgba.save(f"./output/sma2_{i}_{name}.png")
-        print("saved", f"./output/sma2_{i}_{name}.png")
+        rgba.save(f"./output/sam2_{i}_{name}.png")
+        print("saved", f"./output/sam2_{i}_{name}.png")
