@@ -12,7 +12,6 @@ model = AutoModelForZeroShotObjectDetection.from_pretrained(model_name).to(devic
 
 def ground_detect(image,text, box_threshold=0.4, text_threshold=0.3):
     inputs = processor(images=image,text=text ,return_tensors='pt').to(device)
-    print("inputs", inputs.keys())
     with torch.no_grad():
         outputs =model(**inputs)
 
