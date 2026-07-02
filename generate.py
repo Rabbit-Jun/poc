@@ -16,7 +16,14 @@ from PIL import Image
 from seg1 import segment              # segformer_b2_clothes
 from sam_cutout import yolo_sam       # yolos + SAM2
 from ground_sam import ground_sam     # GroundingDINO + SAM2
-from seg_rembg import rembg_seg       # rembg (u2net_cloth_seg)
+
+# rembg는 onnxruntime 기반 → Mac 등 미설치 환경이면 자동 스킵
+try:
+    from seg_rembg import rembg_seg
+    HAS_REMBG = True
+except Exception as e:
+    print(f"[rembg 스킵] {e}")
+    HAS_REMBG = False
 
 
 def apply_mask(image, mask_bool):
@@ -73,8 +80,9 @@ MODELS = {
     "segformer":  cutout_segformer,
     "yolo_sam":   cutout_yolo_sam,
     "ground_sam": cutout_ground_sam,
-    "rembg":      cutout_rembg,
 }
+if HAS_REMBG:
+    MODELS["rembg"] = cutout_rembg
 
 
 if __name__ == "__main__":
