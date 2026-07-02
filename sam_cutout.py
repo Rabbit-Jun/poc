@@ -6,7 +6,7 @@ from detect import detect_objects, model as yolo
 import numpy as np
 
 device = get_device()
-sam_name = 'facebook/sam2.1_hiera_tiny'
+sam_name = 'facebook/sam2.1-hiera-tiny'
 sam_processor = Sam2Processor.from_pretrained(sam_name)
 sam_model = Sam2Model.from_pretrained(sam_name).to(device)
 
