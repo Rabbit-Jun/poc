@@ -1,4 +1,3 @@
-from torch import device
 from transformers import pipeline
 from device_check import get_device
 from PIL import Image
@@ -22,24 +21,36 @@ attrs_by_category = {
     "lower-clothes": ["pattern", "detail"],
 }
 
-file_path = pathlib.Path('./output').glob('*')
-for path in list(file_path):
-    image = Image.open(path)
-
-    if path.name.startswith("upper"):
-        attr_names = attrs_by_category['upper-clothes']
-    elif path.name.startswith("lower"):
-        attr_names = attrs_by_category['lower-clothes']
-    else:
-        attr_names = attrs_by_category['full-clothes']
-
-
+def extract_attrs(image, attr_names=None):
+    if attr_names is None:
+        attr_names = groups.keys()
+    results = {}
     for attr in attr_names:
         labels = groups[attr]
         res = pipe(image, candidate_labels=labels)
         top = res[0]
-        print(f"{attr:15s} {top['label']:20s} {top['score']:.4f}")
-    print('-'*50)
+        results[attr] = (top['label'], top['score'])
+
+    return results
+
+
+
+if __name__ == '__main__':
+    file_path = pathlib.Path('./output').glob('*')
+    for path in list(file_path):
+        image = Image.open(path)
+
+        if path.name.startswith("upper"):
+            attr_names = attrs_by_category['upper-clothes']
+        elif path.name.startswith("lower"):
+            attr_names = attrs_by_category['lower-clothes']
+        else:
+            attr_names = attrs_by_category['full-clothes']
+
+        results = extract_attrs(image, attr_names)
+        for attr, (label, score) in results.items():
+            print(f"{attr:15s} {label:20s} {score:.4f}")
+        print('-'*50)
 
 
 

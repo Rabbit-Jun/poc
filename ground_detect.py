@@ -33,7 +33,7 @@ if __name__ == "__main__":
     image = Image.open("input/model3.webp")
     text = "shirt. pants. dress. jacket. skirt. shoe."
     results = ground_detect(image, text)
-    for score,label,box in zip(results["scores"], results["labels"], results["boxes"]):
+    for score,label,box in zip(results["scores"], results["text_labels"], results["boxes"]):
         print(f"{label:20s} {score.item():.2f}  {[round(x,1) for x in box.tolist()]}")
 
     
