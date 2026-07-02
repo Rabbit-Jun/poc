@@ -8,7 +8,12 @@ from seg1 import segment, model
 from pattern import extract_attrs
 from colors import dominant_colors
 
-
+CLOTHING_GROUPS = {
+    "upper": [4],           # Upper-clothes
+    "lower": [5, 6],        # Skirt, Pants
+    "full":  [7],           # Dress
+    "all":   [4, 5, 6, 7],
+}
 
 
 app = FastAPI()
@@ -18,13 +23,13 @@ def hello():
     return {"message": "HelloWorld!"}
 
 @app.post("/segment")
-async def segment_endpoint(file: UploadFile = File(...)):
+async def segment_endpoint(file: UploadFile = File(...), category: str = "all"):
     image_bytes = await file.read()
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     pred = segment(image)
 
-    clothing_ids = [4,5,6,7]
+    clothing_ids = CLOTHING_GROUPS.get(category, CLOTHING_GROUPS["all"])
     mask = torch.zeros_like(pred, dtype=torch.bool)
 
     for i in clothing_ids:
