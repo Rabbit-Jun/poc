@@ -52,6 +52,28 @@ curl -X POST "localhost:8000/color" -F "file=@cutout.png"
 
 ## 실행
 
+### 빠른 시작 (팀원용) 🚀
+
+레포를 받고 바로 실행. **이미지는 `docker compose up` 시 Docker Hub에서 자동으로 받아옵니다** (별도 `docker pull`·빌드 불필요).
+
+```bash
+# 1. 레포 clone (설정 파일 받기)
+git clone https://github.com/ASM-17-NS/Clothing_background_removal_and_information_extraction.git
+cd Clothing_background_removal_and_information_extraction   # 폴더명은 clone 결과에 맞춰
+
+# 2. 실행
+#   GPU 없는 환경 (CPU)
+docker compose up
+#   GPU 서버 (NVIDIA)
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+
+# 3. 접속:  http://localhost:8000/docs  → /analyze 또는 /analyze_path 사용
+```
+
+- 처음 실행 시 이미지(약 3GB)와 모델을 받느라 시간이 걸리고, 이후엔 캐시되어 빠릅니다.
+- 누끼 결과는 호스트의 `./static/` 폴더에 저장됩니다 (아래 볼륨 설명 참고).
+- 이미지만 따로 받고 싶으면: `docker compose pull` (yml이 가리키는 이미지를 Docker Hub에서 받음).
+
 ### A. docker compose (권장)
 
 포트·볼륨 설정이 `docker-compose.yml`에 들어있어 **한 줄로 실행**됩니다.
