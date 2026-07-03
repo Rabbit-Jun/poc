@@ -11,6 +11,8 @@ GPU(NVIDIA) 서버에서 FastAPI로 서빙.
 
 | 메서드 | 경로 | 설명 | 응답 |
 | --- | --- | --- | --- |
+| POST | `/analyze` | **누끼+속성+색상 통합** (부위별) | JSON — `image`=누끼 **URL** |
+| POST | `/analyze_path` | `/analyze`와 동일, 이미지를 **파일 경로**로 | JSON — `image`=`static/…` 경로 |
 | POST | `/segment?category=upper\|lower\|full\|all` | 단일 부위 누끼 | PNG 이미지 |
 | POST | `/segment2` | 상/하/전신 누끼 한 번에 | JSON (base64 PNG 3개) |
 | POST | `/attrs` | 옷 디자인 속성(무늬/넥라인/소매 등) | JSON |
@@ -21,6 +23,9 @@ GPU(NVIDIA) 서버에서 FastAPI로 서빙.
 
 ### 사용 예시
 ```bash
+# 통합 분석 (누끼 URL + 속성 + 색상) — 부위별 리스트로 반환
+curl -X POST "localhost:8000/analyze" -F "file=@sample.jpg"
+
 # 단일 누끼 (PNG 바로 저장)
 curl -X POST "localhost:8000/segment?category=upper" -F "file=@sample.jpg" --output upper.png
 
@@ -31,26 +36,54 @@ curl -X POST "localhost:8000/attrs" -F "file=@sample.jpg"
 curl -X POST "localhost:8000/color" -F "file=@cutout.png"
 ```
 
+**`/analyze` 응답 예** — 사진에 있는 부위(상의/하의/전신)마다 하나씩:
+```json
+[
+  {"image": "http://<서버>:8000/static/ab12_upper.png", "type": "upper",
+   "meta_data": {"pattern": "graphic print", "neckline": "v neck", "sleeve": "sleeveless"},
+   "color": "black"}
+]
+```
+> **`image` 반환 방식 2가지** — 서버/백엔드 구성에 맞춰 선택:
+> - `/analyze` → **URL** (`http://…/static/…png`). 서버·네트워크가 다를 때. GET 하면 이미지.
+> - `/analyze_path` → **파일 경로** (`static/…png`). 백엔드가 **같은 호스트에서 static 볼륨을 공유**해 파일을 직접 읽을 때 ([아래 Docker 볼륨 공유](#실행) 참고).
+
 ---
 
 ## 실행
 
-### A. Docker (권장)
+### A. docker compose (권장)
+
+포트·볼륨·GPU 설정이 `docker-compose.yml`에 들어있어 **한 줄로 실행**됩니다.
+
+```bash
+docker compose up          # 포그라운드 (로그 보임)
+docker compose up -d       # 백그라운드
+docker compose down        # 종료
+```
+→ `http://<서버>:8000/docs` 접속.
+
+- **누끼 저장 위치**: 호스트의 `./static` 폴더(= 컨테이너 `/app/static`)에 쌓임. 컨테이너를 지워도 유지되고, **같은 폴더를 백엔드가 공유**해 `/analyze_path`가 준 경로로 직접 읽을 수 있음.
+  - `./static` 폴더는 `docker compose up` 시 **자동 생성**됨.
+  - 저장 위치를 고정하려면 `docker-compose.yml`의 `volumes`를 절대경로로: `- /srv/static:/app/static` (백엔드가 읽을 경로와 맞출 것).
+- **백엔드와 볼륨 공유**: `docker-compose.yml`의 주석 처리된 `backend:` 서비스에 같은 `- ./static:/app/static`를 걸면 됨.
+- **로컬 빌드**: `docker-compose.yml`에서 `image:` 대신 `build: .` 사용 → `docker compose up --build`.
+
+### B. docker run (단발성)
 
 ```bash
 # NVIDIA GPU 서버 (x86_64 + nvidia-container-toolkit)
 docker pull rabbitjun/clothing-api
-docker run --rm --gpus all -p 8000:8000 rabbitjun/clothing-api
+docker run --rm --gpus all -p 8000:8000 -v "$(pwd)/static:/app/static" rabbitjun/clothing-api
 
 # GPU 없는 환경 (CPU 폴백, 느림)
-docker run --rm -p 8000:8000 rabbitjun/clothing-api
+docker run --rm -p 8000:8000 -v "$(pwd)/static:/app/static" rabbitjun/clothing-api
 ```
-→ `http://<서버>:8000/docs` 접속.
 
 > 직접 빌드: `docker build -t clothing-api . && docker run --rm --gpus all -p 8000:8000 clothing-api`
 > HF 모델 캐시 재사용(다운로드 생략): `-v ~/.cache/huggingface:/root/.cache/huggingface`
 
-### B. 로컬 (개발용)
+### C. 로컬 (개발용)
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -89,7 +122,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ## 프로젝트 구조
 
 ```
-main.py            FastAPI 앱 (/segment, /segment2, /attrs, /color)
+main.py            FastAPI 앱 (/analyze, /analyze_path, /segment, /segment2, /attrs, /color)
 seg1.py            segformer 누끼          detect.py         yolos 검출
 sam_cutout.py      yolos + SAM2           ground_detect.py  grounding-dino 검출
 ground_sam.py      grounding-dino + SAM2  seg_rembg.py      rembg
@@ -101,7 +134,7 @@ generate.py        모델별 부위 누끼 이미지 생성 (품질 비교용)
 extract_info.py    이미지별 속성+색상 추출 → output/info.json
 decode.py          /segment2 base64 응답 → PNG 디코드 헬퍼
 
-Dockerfile · requirements.txt · .dockerignore
+Dockerfile · docker-compose.yml · requirements.txt · .dockerignore
 input/             샘플 이미지            output/           생성 결과(gitignore)
 ```
 
