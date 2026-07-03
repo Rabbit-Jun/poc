@@ -1,7 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, File, Query, Request
 from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 import io
+import os
+import uuid
 import torch
 import base64
 from seg1 import segment, model
@@ -16,6 +19,13 @@ CLOTHING_GROUPS = {
     "all":   [4, 5, 6, 7],
 }
 
+# 부위별 물어볼 속성 (하의는 넥라인/소매 없음)
+ATTRS_BY_CAT = {
+    "upper": ["pattern", "neckline", "sleeve", "shoulder", "detail"],
+    "lower": ["pattern", "detail"],
+    "full":  ["pattern", "neckline", "sleeve", "shoulder", "detail"],
+}
+
 app = FastAPI(
     title="의류 분석 API",
     description="""
@@ -28,6 +38,10 @@ app = FastAPI(
 """,
     version="1.0.0",
 )
+
+# 누끼 결과 이미지를 저장·서빙할 폴더 (/static/파일명 으로 접근)
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 def make_cutout_png(image, pred, ids):
@@ -134,3 +148,74 @@ async def color_endpoint(
     image_bytes = await file.read()
     image = Image.open(io.BytesIO(image_bytes))
     return {"colors": dominant_colors(image)}
+
+
+@app.post("/analyze", tags=["통합"], summary="누끼 + 속성 + 색상 통합 (부위별, 이미지 URL)")
+async def analyze_endpoint(
+    request: Request,
+    file: UploadFile = File(..., description="옷 사진 이미지 (jpg/png/webp)"),
+):
+    """
+    한 번의 요청으로 **부위별(상의/하의/전신) 누끼 + 속성 + 대표색**을 통합 반환합니다.
+    누끼 이미지는 서버에 저장되고 **URL**로 반환됩니다.
+
+    - **입력**: 이미지 파일 `file`
+    - **출력**: 부위마다 하나씩, 리스트(JSON). 사진에 없는 부위는 제외.
+      ```json
+      [
+        {
+          "image": "http://<서버>/static/xxxx_upper.png",
+          "type": "upper",
+          "meta_data": {"pattern": "graphic print", "neckline": "v neck", "sleeve": "sleeveless", "shoulder": "one-shoulder", "detail": "shirring"},
+          "color": "black"
+        },
+        {
+          "image": "http://<서버>/static/xxxx_lower.png",
+          "type": "lower",
+          "meta_data": {"pattern": "floral", "detail": "pleats"},
+          "color": "gray"
+        }
+      ]
+      ```
+    - `image` = 누끼 PNG의 **URL** (그 주소로 GET 하면 이미지). base64 아님.
+    - `type` = 부위(upper/lower/full). `meta_data` = 디자인 속성(부위마다 항목 다름). `color` = 대표색 이름.
+    """
+    image_bytes = await file.read()
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    pred = segment(image)
+
+    results = []
+    for cat in ["upper", "lower", "full"]:
+        # 부위 마스크
+        mask = torch.zeros_like(pred, dtype=torch.bool)
+        for i in CLOTHING_GROUPS[cat]:
+            mask |= (pred == i)
+        if not bool(mask.any()):
+            continue   # 사진에 이 부위 없음 → 제외
+
+        # 누끼 이미지 → static 폴더에 저장 후 URL 반환
+        mask_np = (mask.to(torch.uint8) * 255).cpu().numpy()
+        rgba = image.convert("RGBA")
+        rgba.putalpha(Image.fromarray(mask_np, mode="L"))
+        fname = f"{uuid.uuid4().hex}_{cat}.png"     # 요청마다 고유 이름(충돌 방지)
+        rgba.save(f"static/{fname}")
+        image_url = f"{request.base_url}static/{fname}"
+
+        # 속성 (부위별 · 흰 배경 합성해서 배경 영향 최소화)
+        white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+        comp = Image.alpha_composite(white, rgba).convert("RGB")
+        attrs = extract_attrs(comp, attr_names=ATTRS_BY_CAT[cat])
+        meta_data = {a: label for a, (label, score) in attrs.items()}
+
+        # 대표색 (1등 색이름)
+        colors = dominant_colors(rgba)
+        color = colors[0]["name"] if colors else None
+
+        results.append({
+            "image": image_url,
+            "type": cat,
+            "meta_data": meta_data,
+            "color": color,
+        })
+
+    return results
