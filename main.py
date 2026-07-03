@@ -150,40 +150,9 @@ async def color_endpoint(
     return {"colors": dominant_colors(image)}
 
 
-@app.post("/analyze", tags=["통합"], summary="누끼 + 속성 + 색상 통합 (부위별, 이미지 URL)")
-async def analyze_endpoint(
-    request: Request,
-    file: UploadFile = File(..., description="옷 사진 이미지 (jpg/png/webp)"),
-):
-    """
-    한 번의 요청으로 **부위별(상의/하의/전신) 누끼 + 속성 + 대표색**을 통합 반환합니다.
-    누끼 이미지는 서버에 저장되고 **URL**로 반환됩니다.
-
-    - **입력**: 이미지 파일 `file`
-    - **출력**: 부위마다 하나씩, 리스트(JSON). 사진에 없는 부위는 제외.
-      ```json
-      [
-        {
-          "image": "http://<서버>/static/xxxx_upper.png",
-          "type": "upper",
-          "meta_data": {"pattern": "graphic print", "neckline": "v neck", "sleeve": "sleeveless", "shoulder": "one-shoulder", "detail": "shirring"},
-          "color": "black"
-        },
-        {
-          "image": "http://<서버>/static/xxxx_lower.png",
-          "type": "lower",
-          "meta_data": {"pattern": "floral", "detail": "pleats"},
-          "color": "gray"
-        }
-      ]
-      ```
-    - `image` = 누끼 PNG의 **URL** (그 주소로 GET 하면 이미지). base64 아님.
-    - `type` = 부위(upper/lower/full). `meta_data` = 디자인 속성(부위마다 항목 다름). `color` = 대표색 이름.
-    """
-    image_bytes = await file.read()
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+def _analyze(image, make_image_ref):
+    """부위별 누끼+속성+색상 통합. make_image_ref(fname)이 image 필드 값(URL 또는 경로)을 만든다."""
     pred = segment(image)
-
     results = []
     for cat in ["upper", "lower", "full"]:
         # 부위 마스크
@@ -193,13 +162,12 @@ async def analyze_endpoint(
         if not bool(mask.any()):
             continue   # 사진에 이 부위 없음 → 제외
 
-        # 누끼 이미지 → static 폴더에 저장 후 URL 반환
+        # 누끼 이미지 → static 폴더에 저장
         mask_np = (mask.to(torch.uint8) * 255).cpu().numpy()
         rgba = image.convert("RGBA")
         rgba.putalpha(Image.fromarray(mask_np, mode="L"))
         fname = f"{uuid.uuid4().hex}_{cat}.png"     # 요청마다 고유 이름(충돌 방지)
         rgba.save(f"static/{fname}")
-        image_url = f"{request.base_url}static/{fname}"
 
         # 속성 (부위별 · 흰 배경 합성해서 배경 영향 최소화)
         white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
@@ -212,10 +180,49 @@ async def analyze_endpoint(
         color = colors[0]["name"] if colors else None
 
         results.append({
-            "image": image_url,
+            "image": make_image_ref(fname),
             "type": cat,
             "meta_data": meta_data,
             "color": color,
         })
-
     return results
+
+
+@app.post("/analyze", tags=["통합"], summary="누끼+속성+색상 통합 (이미지 URL)")
+async def analyze_endpoint(
+    request: Request,
+    file: UploadFile = File(..., description="옷 사진 이미지 (jpg/png/webp)"),
+):
+    """
+    부위별(상의/하의/전신) 누끼 + 속성 + 대표색을 한 번에 반환. 누끼는 **URL**로.
+
+    - **출력**: 부위마다 하나씩 리스트. 사진에 없는 부위는 제외.
+      ```json
+      [{"image": "http://<서버>/static/xxxx_upper.png", "type": "upper",
+        "meta_data": {"pattern": "graphic print", "neckline": "v neck"}, "color": "black"}]
+      ```
+    - `image` = 누끼 PNG **URL**(GET 하면 이미지). 서버/네트워크가 다를 때 이 방식.
+    """
+    image_bytes = await file.read()
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    return _analyze(image, lambda fname: f"{request.base_url}static/{fname}")
+
+
+@app.post("/analyze_path", tags=["통합"], summary="누끼+속성+색상 통합 (이미지 파일 경로)")
+async def analyze_path_endpoint(
+    file: UploadFile = File(..., description="옷 사진 이미지 (jpg/png/webp)"),
+):
+    """
+    `/analyze`와 동일하되, `image`를 URL이 아니라 **파일 경로**(`static/파일명`)로 반환.
+    **같은 호스트에서 static 폴더를 볼륨으로 공유**하는 백엔드가 파일을 직접 읽을 때 사용.
+
+    - **출력**:
+      ```json
+      [{"image": "static/xxxx_upper.png", "type": "upper", "meta_data": {...}, "color": "black"}]
+      ```
+    - `image` = static 폴더 기준 경로. 백엔드는 공유 볼륨의 static 위치와 합쳐 파일을 읽음.
+    - **볼륨 공유 필요**: 실행 시 `-v <공유폴더>:/app/static` (백엔드도 같은 폴더 접근).
+    """
+    image_bytes = await file.read()
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    return _analyze(image, lambda fname: f"static/{fname}")

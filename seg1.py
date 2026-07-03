@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
         rgba = image.convert("RGBA")
         rgba.putalpha(mask_img)
-        rgba.save(f"{category}.png")
+        rgba.save(f"output/{category}.png")
     print("saved")
 
 
