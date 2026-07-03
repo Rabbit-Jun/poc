@@ -4,6 +4,7 @@ services:
   clothing-api:
     image: rabbitjun/clothing-api      # Docker Hub 이미지 사용
     # build: .                          # ← 로컬에서 직접 빌드하려면 위 image 대신 이 줄
+    platform: linux/amd64              # 이미지가 amd64 전용 → arm64(Mac)에선 에뮬레이션 필요
     ports:
       - "8000:8000"
     volumes:
