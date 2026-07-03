@@ -1,12 +1,27 @@
-# GPU(NVIDIA) 서버 전용 추가 설정. 단독으로 쓰지 말고 기본 파일에 "얹어서" 실행:
-#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
-# (docker run 의 --gpus all 에 해당. GPU 없는 환경은 이 파일 없이 docker compose up)
+# GPU(NVIDIA) 서버용 — 이 파일 하나만 있으면 실행됩니다.
+#   docker compose -f docker-compose.gpu.yml up
+# (GPU 없는 환경은 docker-compose.yml 사용)
 services:
   clothing-api:
+    image: rabbitjun/clothing-api      # Docker Hub 이미지 사용
+    # build: .                          # ← 로컬에서 직접 빌드하려면 위 image 대신 이 줄
+    ports:
+      - "8000:8000"
+    volumes:
+      # 누끼 저장 폴더를 "컨테이너 밖"(호스트 ./static)에 연결 → 백엔드가 읽고, 종료해도 유지
+      - ./static:/app/static
+      # HF 모델 캐시 재사용(다운로드 생략)
+      - ~/.cache/huggingface:/root/.cache/huggingface
     deploy:
       resources:
         reservations:
           devices:
-            - driver: nvidia
+            - driver: nvidia          # GPU 사용 (--gpus all 과 동일)
               count: all
               capabilities: [gpu]
+
+  # ── 백엔드도 같은 볼륨을 공유하는 예시 (팀 백엔드 이미지로 교체) ──
+  # backend:
+  #   image: your-backend-image
+  #   volumes:
+  #     - ./static:/app/static        # API가 저장한 누끼를 같은 폴더에서 읽음

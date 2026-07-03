@@ -19,6 +19,6 @@ services:
   #   volumes:
   #     - ./static:/app/static        # API가 저장한 누끼를 같은 폴더에서 읽음
 
-# ── GPU 서버(NVIDIA)에서는 GPU 설정을 얹어서 실행 ──
-#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
-# GPU 없는 환경(팀원/Mac)은 그냥  docker compose up  (이 파일만 사용, CPU 폴백)
+# ── GPU 서버(NVIDIA)는 이 파일 말고 docker-compose.gpu.yml 하나만 쓰면 됩니다 ──
+#   docker compose -f docker-compose.gpu.yml up
+# 이 파일(docker-compose.yml)은 GPU 없는 환경 전용:  docker compose up  (CPU 폴백)

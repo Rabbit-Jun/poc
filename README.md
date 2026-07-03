@@ -62,10 +62,10 @@ git clone https://github.com/ASM-17-NS/Clothing_background_removal_and_informati
 cd Clothing_background_removal_and_information_extraction   # 폴더명은 clone 결과에 맞춰
 
 # 2. 실행
-#   GPU 없는 환경 (CPU)
+#   GPU 없는 환경 (CPU)     → docker-compose.yml 사용
 docker compose up
-#   GPU 서버 (NVIDIA)
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+#   GPU 서버 (NVIDIA)       → docker-compose.gpu.yml 하나만 사용
+docker compose -f docker-compose.gpu.yml up
 
 # 3. 접속:  http://localhost:8000/docs  → /analyze 또는 /analyze_path 사용
 ```
@@ -79,19 +79,20 @@ docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
 포트·볼륨 설정이 `docker-compose.yml`에 들어있어 **한 줄로 실행**됩니다.
 
 ```bash
-# GPU 없는 환경 (팀원 서버 / Mac / CPU) — 기본 파일만
+# GPU 없는 환경 (팀원 서버 / Mac / CPU) — docker-compose.yml
 docker compose up          # 포그라운드 (로그 보임)
 docker compose up -d       # 백그라운드
 docker compose down        # 종료
 
-# GPU 서버 (NVIDIA) — GPU 설정 파일을 얹어서 실행
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+# GPU 서버 (NVIDIA) — docker-compose.gpu.yml 하나만
+docker compose -f docker-compose.gpu.yml up
 ```
 → `http://<서버>:8000/docs` 접속.
 
-- **GPU는 옵션** (`docker run`의 `--gpus all` 붙였다 뺐다 하던 것과 동일):
-  - 기본 `docker-compose.yml`엔 GPU 설정이 **없어서** GPU 없는 환경에서도 그냥 `docker compose up`으로 동작(CPU 폴백).
-  - GPU를 쓰려면 `-f docker-compose.gpu.yml`을 **추가**로 얹음 (여러 `-f`는 파일을 병합).
+- **GPU 여부에 따라 파일 하나만 고르면 됨** (각 파일이 독립 실행 가능):
+  - GPU 없음 → `docker-compose.yml` → `docker compose up`
+  - GPU 있음(NVIDIA) → `docker-compose.gpu.yml` → `docker compose -f docker-compose.gpu.yml up`
+  - 팀원은 자기 환경에 맞는 **파일 하나만 받으면** 됩니다.
 - **누끼 저장 위치**: 호스트의 `./static` 폴더(= 컨테이너 `/app/static`)에 쌓임. 컨테이너를 지워도 유지되고, **같은 폴더를 백엔드가 공유**해 `/analyze_path`가 준 경로로 직접 읽을 수 있음.
   - `./static` 폴더는 `docker compose up` 시 **자동 생성**됨.
   - 저장 위치를 고정하려면 `docker-compose.yml`의 `volumes`를 절대경로로: `- /srv/static:/app/static` (백엔드가 읽을 경로와 맞출 것).
