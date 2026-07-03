@@ -54,15 +54,22 @@ curl -X POST "localhost:8000/color" -F "file=@cutout.png"
 
 ### A. docker compose (권장)
 
-포트·볼륨·GPU 설정이 `docker-compose.yml`에 들어있어 **한 줄로 실행**됩니다.
+포트·볼륨 설정이 `docker-compose.yml`에 들어있어 **한 줄로 실행**됩니다.
 
 ```bash
+# GPU 없는 환경 (팀원 서버 / Mac / CPU) — 기본 파일만
 docker compose up          # 포그라운드 (로그 보임)
 docker compose up -d       # 백그라운드
 docker compose down        # 종료
+
+# GPU 서버 (NVIDIA) — GPU 설정 파일을 얹어서 실행
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
 ```
 → `http://<서버>:8000/docs` 접속.
 
+- **GPU는 옵션** (`docker run`의 `--gpus all` 붙였다 뺐다 하던 것과 동일):
+  - 기본 `docker-compose.yml`엔 GPU 설정이 **없어서** GPU 없는 환경에서도 그냥 `docker compose up`으로 동작(CPU 폴백).
+  - GPU를 쓰려면 `-f docker-compose.gpu.yml`을 **추가**로 얹음 (여러 `-f`는 파일을 병합).
 - **누끼 저장 위치**: 호스트의 `./static` 폴더(= 컨테이너 `/app/static`)에 쌓임. 컨테이너를 지워도 유지되고, **같은 폴더를 백엔드가 공유**해 `/analyze_path`가 준 경로로 직접 읽을 수 있음.
   - `./static` 폴더는 `docker compose up` 시 **자동 생성**됨.
   - 저장 위치를 고정하려면 `docker-compose.yml`의 `volumes`를 절대경로로: `- /srv/static:/app/static` (백엔드가 읽을 경로와 맞출 것).
@@ -134,7 +141,7 @@ generate.py        모델별 부위 누끼 이미지 생성 (품질 비교용)
 extract_info.py    이미지별 속성+색상 추출 → output/info.json
 decode.py          /segment2 base64 응답 → PNG 디코드 헬퍼
 
-Dockerfile · docker-compose.yml · requirements.txt · .dockerignore
+Dockerfile · docker-compose.yml · docker-compose.gpu.yml · requirements.txt · .dockerignore
 input/             샘플 이미지            output/           생성 결과(gitignore)
 ```
 

@@ -1,5 +1,5 @@
 # 실행: docker compose up        (백그라운드: docker compose up -d)
-# 포트·볼륨·GPU를 여기 미리 적어둬서, 플래그 없이 한 줄로 실행됩니다.
+# GPU 없이도 동작합니다(CPU 폴백). GPU 서버는 아래 "GPU 서버" 주석 참고.
 services:
   clothing-api:
     image: rabbitjun/clothing-api      # Docker Hub 이미지 사용
@@ -11,16 +11,13 @@ services:
       - ./static:/app/static
       # HF 모델 캐시 재사용(다운로드 생략)
       - ~/.cache/huggingface:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia          # GPU 사용 (--gpus all 과 동일)
-              count: all
-              capabilities: [gpu]
 
   # ── 백엔드도 같은 볼륨을 공유하는 예시 (팀 백엔드 이미지로 교체) ──
   # backend:
   #   image: your-backend-image
   #   volumes:
   #     - ./static:/app/static        # API가 저장한 누끼를 같은 폴더에서 읽음
+
+# ── GPU 서버(NVIDIA)에서는 GPU 설정을 얹어서 실행 ──
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+# GPU 없는 환경(팀원/Mac)은 그냥  docker compose up  (이 파일만 사용, CPU 폴백)

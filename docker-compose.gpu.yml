@@ -1,0 +1,12 @@
+# GPU(NVIDIA) 서버 전용 추가 설정. 단독으로 쓰지 말고 기본 파일에 "얹어서" 실행:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+# (docker run 의 --gpus all 에 해당. GPU 없는 환경은 이 파일 없이 docker compose up)
+services:
+  clothing-api:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
